@@ -342,6 +342,13 @@ with tab_run:
         except Exception as e:
             rd["error"] = str(e)
             st.session_state.log_buffer.append(f"EXCEPTION:\n{traceback.format_exc()}")
+            # 尝试提取 Stripe 原始响应
+            try:
+                if 'pf' in dir() and pf and pf.result.confirm_response:
+                    rd["confirm_response"] = pf.result.confirm_response
+                    rd["confirm_status"] = pf.result.confirm_status
+            except Exception:
+                pass
             for k in node_status:
                 if node_status[k] == "running":
                     node_status[k] = "error"

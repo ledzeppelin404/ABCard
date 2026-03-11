@@ -324,6 +324,13 @@ class PaymentFlow:
         )
 
         if resp.status_code != 200:
+            # 保存原始 Stripe 响应供 UI 展示
+            try:
+                self.result.confirm_response = resp.json()
+            except Exception:
+                self.result.confirm_response = {"raw": resp.text[:500]}
+            self.result.confirm_status = str(resp.status_code)
+
             err = resp.text[:300]
             try:
                 err = resp.json().get("error", {}).get("message", err)
