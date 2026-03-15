@@ -259,12 +259,33 @@ COUNTRY_MAP = {
     "CH - 瑞士": ("CH", "CHF", "Zurich", "Bahnhofstrasse 1", "8001"),
 }
 
-st.set_page_config(page_title="Auto BindCard", page_icon="💳", layout="wide")
+st.set_page_config(page_title="Let's ABC", page_icon="A", layout="wide")
 
 # ── CSS ──
 st.markdown("""
 <style>
     .block-container { max-width: 1100px; padding-top: 1.5rem; }
+    /* 更精细的排版 */
+    .stRadio > label { font-weight: 500; letter-spacing: 0.02em; }
+    .stRadio [data-baseweb="radio"] { gap: 0.3rem; }
+    .stTabs [data-baseweb="tab-list"] { gap: 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .stTabs [data-baseweb="tab"] {
+        padding: 0.6rem 1.5rem; font-weight: 500; letter-spacing: 0.05em;
+        border-bottom: 2px solid transparent; transition: all 0.2s;
+    }
+    .stTabs [aria-selected="true"] { border-bottom-color: #7c3aed; }
+    /* 进度条渐变 */
+    .stProgress > div > div > div { background: linear-gradient(90deg, #7c3aed, #3b82f6); }
+    /* 按键圆角 */
+    .stButton > button { border-radius: 8px; font-weight: 500; letter-spacing: 0.03em; transition: all 0.15s; }
+    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; }
+    .stButton > button[kind="primary"]:hover { background: linear-gradient(135deg, #6d28d9, #5b21b6); }
+    /* 输入框 */
+    .stTextInput > div > div > input { border-radius: 6px; }
+    /* Expander 样式 */
+    .streamlit-expanderHeader { font-weight: 500; letter-spacing: 0.02em; }
+    /* 分割线淡化 */
+    hr { opacity: 0.15; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -351,7 +372,20 @@ if "_pending_parse" in st.session_state:
 # ════════════════════════════════════════
 # 顶部
 # ════════════════════════════════════════
-st.title("💳 Auto BindCard")
+st.markdown(
+    '<h1 style="text-align:center;letter-spacing:3px;">'
+    "Let's "
+    '<span style="font-family:\'Courier New\',monospace;font-weight:900;'
+    'background:linear-gradient(135deg,#7c3aed,#3b82f6);-webkit-background-clip:text;'
+    '-webkit-text-fill-color:transparent;font-size:1.15em;">ABC</span>'
+    ' <span style="font-size:0.5em;opacity:0.6;vertical-align:middle;">(Auto BindCard)</span>'
+    '</h1>',
+    unsafe_allow_html=True,
+)
+
+# ── 开发者模式: 启动时通过 -- --dev 参数开启 ──
+# 用法: streamlit run ui.py -- --dev
+dev_mode = "--dev" in sys.argv
 
 # ── 账号来源选择 ──
 _cred_files_all = []
@@ -361,20 +395,24 @@ if os.path.exists(OUTPUT_DIR):
         reverse=True,
     )
 
-acct_col, step_col, proxy_col = st.columns([2, 2, 2])
+acct_col, proxy_col = st.columns([3, 2])
 with acct_col:
     account_source = st.radio(
         "账号来源",
-        ["🆕 新注册", "📂 选择已有账号", "🔑 手动输入 Token"],
+        ["新注册", "选择已有账号", "手动输入 Token"],
         index=1 if _cred_files_all else 0,
         horizontal=True,
     )
-    do_register = account_source == "🆕 新注册"
+    do_register = account_source == "新注册"
 
-with step_col:
-    sc1, sc2 = st.columns(2)
-    do_checkout = sc1.checkbox("创建 Checkout", value=True)
-    do_payment = sc2.checkbox("提交支付", value=True)
+do_checkout = True
+do_payment = True
+
+if dev_mode:
+    with proxy_col:
+        sc1, sc2 = st.columns(2)
+        do_checkout = sc1.checkbox("创建 Checkout", value=True)
+        do_payment = sc2.checkbox("提交支付", value=True)
 
 with proxy_col:
     proxy = st.text_input("代理", placeholder="http://127.0.0.1:7897", key="w_proxy")
@@ -386,7 +424,7 @@ cred_access_token = ""
 cred_device_id = ""
 use_existing_creds = not do_register
 
-if account_source == "📂 选择已有账号":
+if account_source == "选择已有账号":
     if _cred_files_all:
         # 读取所有凭证并显示为友好列表
         _cred_options = {}
@@ -412,7 +450,7 @@ if account_source == "📂 选择已有账号":
     else:
         st.warning("无已保存的账号，请先注册")
 
-elif account_source == "🔑 手动输入 Token":
+elif account_source == "手动输入 Token":
     tk_col1, tk_col2 = st.columns(2)
     with tk_col1:
         cred_access_token = st.text_input("access_token", placeholder="eyJhbGciOi...", type="password", key="w_manual_at")
@@ -423,15 +461,12 @@ elif account_source == "🔑 手动输入 Token":
 
 # ── 注册模式下显示邮箱配置 ──
 if do_register:
-    with st.expander("📧 邮箱配置", expanded=True):
+    with st.expander("邮箱配置", expanded=True):
         _mc1, _mc2, _mc3 = st.columns(3)
         mail_worker = _mc1.text_input("Worker API", value="https://apimail.mkai.de5.net", key="w_mail_worker_reg")
         mail_domain = _mc2.text_input("邮箱域名", value="mkai.de5.net", key="w_mail_domain_reg")
         mail_token = _mc3.text_input("邮箱 Token", value="ma123999", type="password", key="w_mail_token_reg")
 
-# ── 开发者模式: 启动时通过 -- --dev 参数开启 ──
-# 用法: streamlit run ui.py -- --dev
-dev_mode = "--dev" in sys.argv
 
 # 默认值 (非开发者模式下不显示这些设置)
 use_browser_mode = True
@@ -443,7 +478,7 @@ mail_token = "ma123999"
 # 计划类型选择 (始终可见)
 plan_type_label = st.radio(
     "选择计划",
-    ["💼 Business (团队版 免费试用 1 个月)", "⭐ Plus (个人版 免费试用 1 个月)"],
+    ["Business · 团队版免费试用 1 个月", "Plus · 个人版免费试用 1 个月"],
     index=0,
     horizontal=True,
 )
@@ -458,16 +493,16 @@ else:
     promo_campaign = "team-1-month-free"
 
 if dev_mode:
-    with st.expander("⚙️ 高级设置", expanded=False):
+    with st.expander("高级设置", expanded=False):
         adv_col1, adv_col2 = st.columns(2)
         with adv_col1:
             payment_mode = st.radio(
                 "支付模式",
-                ["🌐 浏览器模式 (推荐)", "📡 API 模式"],
+                ["浏览器模式 (推荐)", "API 模式"],
                 index=0,
                 horizontal=True,
             )
-            use_browser_mode = payment_mode.startswith("🌐")
+            use_browser_mode = payment_mode.startswith("浏览")
         with adv_col2:
             if use_browser_mode:
                 import subprocess as _sp
@@ -478,21 +513,21 @@ if dev_mode:
                 except Exception:
                     pass
                 if _xvfb_running:
-                    st.success("✅ Xvfb 运行中 (:99)")
+                    st.success("Xvfb 运行中 (:99)")
                 else:
-                    st.info("💡 将自动启动 Xvfb :99")
+                    st.info("将自动启动 Xvfb :99")
             else:
-                st.info("📡 API 模式")
+                st.info("API 模式")
 
         if not use_browser_mode:
             captcha_col1, captcha_col2 = st.columns([3, 1])
             with captcha_col1:
-                captcha_key = st.text_input("🔑 YesCaptcha API Key", value="27e2aa9da9a236b2a6cfcc3fa0f045fdec2a3633104361", type="password")
+                captcha_key = st.text_input("YesCaptcha API Key", value="27e2aa9da9a236b2a6cfcc3fa0f045fdec2a3633104361", type="password")
             with captcha_col2:
                 captcha_api_url = st.text_input("打码 API", value="https://api.yescaptcha.com")
 
         st.markdown("---")
-        st.markdown("**📧 邮箱 & 计划设置**")
+        st.markdown("**邮箱 & 计划设置**")
         if not do_register:
             mail_worker = st.text_input("邮箱 Worker", value="https://apimail.mkai.de5.net", key="w_mail_worker_dev")
             adv_mc1, adv_mc2 = st.columns(2)
@@ -513,14 +548,14 @@ st.divider()
 # ════════════════════════════════════════
 
 if do_payment:
-    with st.expander("📋 粘贴卡片信息 (自动识别)", expanded=True):
+    with st.expander("粘贴卡片信息", expanded=True):
         paste_text = st.text_area(
             "粘贴卡片/账单文本",
             height=120,
             placeholder="支持两种格式:\n\n格式1 (键值对):\n卡号: 5349336326843395\n有效期: 0332\nCVV: 667\n姓名: Victoria Peterson\n地址: 863 Potosi Street\n城市: Farmington\n州: MO\n邮编: 63640\n国家: United States\n\n格式2 (纯文本):\n4462 2200 0462 4356\n03/29\nCVV 173\n账单地址\nLangley House, London, England, N2 8EY, UK",
             key="paste_card_text",
         )
-        if st.button("🔍 识别并填充", key="parse_btn", disabled=not paste_text):
+        if st.button("识别并填充", key="parse_btn", disabled=not paste_text):
             parsed = _parse_card_text(paste_text)
             pending = {}
             if parsed.get("card_number"):
@@ -562,7 +597,7 @@ if do_payment:
             if parsed.get("billing_name"):
                 filled.append(f"姓名: {parsed['billing_name']}")
             if filled:
-                st.success("✅ 已识别: " + " | ".join(filled))
+                st.success("已识别: " + " | ".join(filled))
             else:
                 st.warning("未能识别卡片信息，请检查文本格式")
             st.rerun()
@@ -571,7 +606,7 @@ cfg_col1, cfg_col2 = st.columns(2)
 
 with cfg_col1:
     if do_payment:
-        with st.expander("💳 信用卡 ⚠️ Live 模式", expanded=True):
+        with st.expander("信用卡", expanded=True):
             TEST_CARDS = {
                 "4242 4242 4242 4242 (Visa 标准)": ("4242424242424242", "123"),
                 "4000 0000 0000 0002 (Visa 被拒)": ("4000000000000002", "123"),
@@ -582,7 +617,7 @@ with cfg_col1:
                 "2223 0031 2200 3222 (MC 2系列)": ("2223003122003222", "123"),
                 "3782 822463 10005 (Amex)": ("378282246310005", "1234"),
             }
-            tc_sel = st.selectbox("🧪 快速填充测试卡", ["不填充"] + list(TEST_CARDS.keys()), key="tc_sel")
+            tc_sel = st.selectbox("快速填充测试卡", ["不填充"] + list(TEST_CARDS.keys()), key="tc_sel")
             if tc_sel != "不填充":
                 tc_num, tc_cvc = TEST_CARDS[tc_sel]
                 st.session_state["w_card_number"] = tc_num
@@ -595,12 +630,12 @@ with cfg_col1:
             card_cvc = cc4.text_input("CVC", key="w_card_cvc")
 
             if card_number and card_number.startswith("4"):
-                st.caption("⚠️ Live 模式下所有测试卡都会被拒绝，仅用于验证流程")
+                st.caption("Live 模式下所有测试卡都会被拒绝，仅用于验证流程")
     else:
         card_number = exp_month = exp_year = card_cvc = ""
 
 with cfg_col2:
-    with st.expander("💰 账单地址", expanded=True):
+    with st.expander("账单地址", expanded=True):
         # 如果有解析出的国家，自动选择对应国家
         country_label = st.selectbox("国家", list(COUNTRY_MAP.keys()), key="w_country")
         country_code, default_currency, default_state, default_addr, default_zip = COUNTRY_MAP[country_label]
@@ -641,7 +676,7 @@ if do_register: steps_list.append("注册")
 if do_checkout: steps_list.append("Checkout")
 if do_payment: steps_list.append("支付")
 
-tab_run, tab_accounts, tab_history = st.tabs(["▶ 执行", "📋 账号", "📊 历史"])
+tab_run, tab_accounts, tab_history = st.tabs(["执行", "账号", "历史"])
 
 # 日志关键词 → 进度百分比映射
 _PROGRESS_KEYWORDS = [
@@ -813,10 +848,10 @@ def _run_flow_thread(rd, cs):
 with tab_run:
     btn_col1, btn_col2 = st.columns([4, 1])
     with btn_col1:
-        run_btn = st.button("🚀 开始执行", disabled=st.session_state.running or not steps_list,
+        run_btn = st.button("开始执行", disabled=st.session_state.running or not steps_list,
                             type="primary", use_container_width=True)
     with btn_col2:
-        stop_btn = st.button("⏹ 终止", disabled=not st.session_state.running, use_container_width=True)
+        stop_btn = st.button("终止", disabled=not st.session_state.running, use_container_width=True)
 
     # ── 点击开始: 启动线程并 rerun ──
     if run_btn and not st.session_state.running:
@@ -861,7 +896,7 @@ with tab_run:
             pass
         st.session_state.running = False
         st.session_state.result = {"success": False, "error": "用户手动终止", "email": ""}
-        st.warning("⚠️ 已终止执行")
+        st.warning("已终止执行")
         st.rerun()
 
     # ── 运行中: 显示进度 ──
@@ -887,9 +922,9 @@ with tab_run:
         r = st.session_state.result
         if r.get("success"):
             st.progress(1.0)
-            st.success(f"✅ 全部完成! {r.get('email', '')}")
+            st.success(f"全部完成 — {r.get('email', '')}")
         elif r.get("error"):
-            st.error(f"❌ {r.get('error', '')}")
+            st.error(f"{r.get('error', '')}")
 
         if dev_mode:
             st.divider()
@@ -918,7 +953,7 @@ with tab_accounts:
             if not df.empty:
                 st.dataframe(df, width="stretch", hide_index=True)
                 st.caption(f"共 {len(df)} 条记录")
-                if st.button("🔄 刷新", key="ref_acc"):
+                if st.button("刷新", key="ref_acc"):
                     st.rerun()
             else:
                 st.info("暂无账号记录")
@@ -928,7 +963,7 @@ with tab_accounts:
         st.info("暂无账号。注册后自动保存到此处。")
 
     st.divider()
-    with st.expander("📁 凭证文件", expanded=False):
+    with st.expander("凭证文件", expanded=False):
         if os.path.exists(OUTPUT_DIR):
             cred_files = sorted([f for f in os.listdir(OUTPUT_DIR) if f.startswith("credentials_") and f.endswith(".json")], reverse=True)
             if cred_files:
@@ -953,7 +988,7 @@ with tab_history:
             if not df.empty:
                 st.dataframe(df, width="stretch", hide_index=True)
                 st.caption(f"共 {len(df)} 条")
-                if st.button("🔄 刷新", key="ref_hist"):
+                if st.button("刷新", key="ref_hist"):
                     st.rerun()
             else:
                 st.info("暂无历史")
@@ -963,7 +998,7 @@ with tab_history:
         st.info("暂无执行历史")
 
     st.divider()
-    with st.expander("📁 结果文件", expanded=False):
+    with st.expander("结果文件", expanded=False):
         if os.path.exists(OUTPUT_DIR):
             rf = sorted([f for f in os.listdir(OUTPUT_DIR) if f.endswith(".json") and not f.startswith("credentials_") and not f.startswith("debug_")], reverse=True)
             if rf:
